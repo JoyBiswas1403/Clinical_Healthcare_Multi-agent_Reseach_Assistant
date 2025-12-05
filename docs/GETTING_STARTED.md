@@ -2,243 +2,176 @@
 
 ## Prerequisites
 
-- Docker & Docker Compose
-- Python 3.11+
-- OpenAI API key (or Anthropic)
-- 8GB+ RAM recommended
+- **Python 3.10+**
+- **Ollama** ([download here](https://ollama.ai))
+
+That's it! No Docker, no cloud accounts, no API keys needed.
 
 ## Quick Start (5 minutes)
 
-### 1. Clone and Configure
+### Step 1: Clone & Install
 
 ```bash
 cd clinical-guideline-assistant
-cp .env.example .env
-```
-
-Edit `.env` and add your API keys:
-```bash
-OPENAI_API_KEY=sk-your-key-here
-```
-
-### 2. Start Infrastructure
-
-```bash
-docker-compose up -d
-```
-
-This starts:
-- PostgreSQL (port 5432)
-- Redis (port 6379)
-- Elasticsearch (port 9200)
-- Milvus (port 19530)
-- MinIO (port 9002)
-- Temporal (port 7233)
-- Temporal UI (port 8088)
-- Prometheus (port 9090)
-- Jaeger (port 16686)
-
-Wait 30-60 seconds for services to be ready.
-
-### 3. Initialize Database
-
-```bash
 pip install -r requirements.txt
-python scripts/init_db.py
 ```
 
-### 4. Start Temporal Worker
-
-In a new terminal:
-```bash
-python scripts/start_worker.py
-```
-
-### 5. Start API Server
-
-In another terminal:
-```bash
-uvicorn api.main:app --reload --port 8000
-```
-
-### 6. Make Your First Request
+### Step 2: Install Ollama & Pull Model
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/research \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-key" \
-  -d '{
-    "topic": "diabetes management in elderly patients",
-    "max_sources": 10,
-    "quality_threshold": 0.7
-  }'
+# Download Ollama from https://ollama.ai
+# Then pull a model:
+ollama pull llama3.2:3b
 ```
 
-You'll receive a `request_id`. Check the status:
+### Step 3: Index Sample Documents
 
 ```bash
-curl http://localhost:8000/api/v1/research/{request_id} \
-  -H "X-API-Key: dev-key"
+python scripts/ingest.py
 ```
 
-## Architecture Overview
+This indexes 10 sample clinical documents into the search system.
 
-### 3-Agent Pipeline
-
-```
-Request → Agent 1 (Query+Filter) → Agent 2 (Retriever+Summarizer) → Agent 3 (Fact-Check+Writer) → Response
-```
-
-**Agent 1: Query+Filter**
-- Expands user query into optimized search terms
-- Generates MeSH terms and synonyms
-- Vets results for domain relevance and policy compliance
-
-**Agent 2: Retriever+Summarizer**
-- Hybrid BM25 (Elasticsearch) + Vector (Milvus) search
-- Reciprocal rank fusion
-- Hierarchical summarization with contradiction detection
-
-**Agent 3: Fact-Check+Writer**
-- Claim-level fact-checking
-- Writes ≤300 word executive brief with inline citations
-- Generates risk flags and traceability appendix
-
-### Data Flow
-
-1. API receives request → saves to PostgreSQL
-2. Temporal workflow started
-3. Agent 1 expands query
-4. Agent 2 searches Elasticsearch + Milvus, summarizes
-5. Agent 3 fact-checks, writes brief, maps claims to sources
-6. Results saved to PostgreSQL
-7. Client polls for completion
-
-## Monitoring
-
-### Temporal UI
-http://localhost:8088
-
-View workflow execution, retry history, and failures.
-
-### Prometheus Metrics
-http://localhost:9090
-
-Query metrics like `research_requests_total`, `research_duration_seconds`.
-
-### Jaeger Tracing
-http://localhost:16686
-
-Distributed tracing across agents and services.
-
-### API Docs
-http://localhost:8000/docs
-
-Interactive OpenAPI documentation.
-
-## Development Workflow
-
-### Running Tests
+### Step 4: Run Demo
 
 ```bash
-pytest tests/ -v
-pytest tests/test_agents.py::TestQueryFilterAgent -v
+python demo_quick.py "diabetes management in elderly patients"
 ```
 
-### Code Quality
+You should see output like:
+```
+🏥 CLINICAL GUIDELINE RESEARCH ASSISTANT
+======================================================================
+
+📋 Topic: diabetes management in elderly patients
+⏰ Time: 2024-01-15 10:30:45
+💰 Cost: $0.00 (FREE with Ollama!)
+
+🔍 AGENT 1: Query+Filter
+--------------------------------------------------
+   ✓ Generated 3 search queries
+   ✓ MeSH terms: Diabetes Mellitus, Aged, Blood Glucose
+
+📚 AGENT 2: Retriever+Summarizer
+--------------------------------------------------
+   ✓ Found 8 relevant documents
+   ⚠ Detected 1 contradiction(s)
+
+✍️ AGENT 3: Fact-Check+Writer
+--------------------------------------------------
+   ✓ Generated 287 word brief
+   ✓ 5 sources cited
+   ✓ 2 risk flags
+
+📄 EXECUTIVE BRIEF
+======================================================================
+Diabetes management in elderly patients requires careful individualization
+to balance glycemic control with safety [1]. Current guidelines recommend
+HbA1c targets between 7.0-8.0% for most patients aged 65 and older [1][2]...
+```
+
+## Project Structure
+
+```
+├── demo_quick.py           # Quick demo - start here!
+├── run_local.py            # Full pipeline with detailed output
+├── scripts/
+│   └── ingest.py           # Index documents
+├── agents/                 # 3 AI agents
+├── data/                   # Search & storage
+└── config/                 # Settings
+```
+
+## Common Commands
 
 ```bash
-# Type checking
-mypy agents/ api/ orchestration/
+# Run quick demo
+python demo_quick.py "your topic"
 
-# Linting
-ruff check .
+# Run with full output
+python run_local.py "your topic"
 
-# Formatting
-ruff format .
+# Re-index documents
+python scripts/ingest.py
+
+# Run tests
+pytest tests/test_agents_lite.py -v
+
+# Check indexed document count
+python -c "from data.search_lite import HybridSearch; print(HybridSearch().count())"
 ```
 
-### Adding Documents
-
-To index clinical documents for retrieval:
-
-1. Upload PDF/DOCX to MinIO
-2. Parse and extract text
-3. Index in Elasticsearch (BM25)
-4. Generate embeddings and store in Milvus
+## Adding Your Own Documents
 
 ```python
-# Example indexing script (create scripts/index_document.py)
-from agents.retriever_summarizer_agent import RetrieverSummarizerAgent
+from data.search_lite import HybridSearch
 
-agent = RetrieverSummarizerAgent()
-# Add documents to ES and Milvus
+search = HybridSearch()
+search.add_document(
+    doc_id="my_doc_001",
+    title="My Clinical Guideline",
+    abstract="Content of the document...",
+    authors="Smith J, Jones K",
+    source_type="clinical_guideline",
+    quality_score=0.9
+)
+
+# Verify
+print(search.count())
 ```
 
-## Production Considerations
+## Changing the LLM Model
 
-### Security
+Edit `config/settings_lite.py`:
 
-- Replace `API_KEY_SECRET` in `.env`
-- Implement proper API key validation in database
-- Enable TLS for all services
-- Use secrets management (AWS Secrets Manager, Vault)
+```python
+# Faster, smaller model
+ollama_model: str = "llama3.2:1b"
 
-### Scaling
+# Better quality (requires more RAM)
+ollama_model: str = "llama3.1:8b"
 
-- Use Kubernetes for orchestration
-- Scale Temporal workers horizontally
-- Use managed services (RDS, ElasticSearch Service, etc.)
-- Implement caching layer (Redis)
+# Alternative model
+ollama_model: str = "mistral"
+```
 
-### Cost Optimization
-
-- Use smaller LLM models for non-critical tasks
-- Batch requests where possible
-- Cache query expansions
-- Implement request deduplication
+Then pull the model:
+```bash
+ollama pull <model_name>
+```
 
 ## Troubleshooting
 
-### Worker Not Picking Up Tasks
-
-- Check Temporal connection: `docker-compose logs temporal`
-- Verify worker is running: `ps aux | grep start_worker`
-- Check queue name matches in API and worker
-
-### Elasticsearch Connection Failed
-
+### "Cannot connect to Ollama"
 ```bash
-# Check if ES is ready
-curl http://localhost:9200/_cluster/health
+# Make sure Ollama is running
+ollama serve
 
-# View logs
-docker-compose logs elasticsearch
+# In another terminal, run your command
+python demo_quick.py "test"
 ```
 
-### Out of Memory
+### "No documents found"
+```bash
+# Re-index sample documents
+python scripts/ingest.py
 
-- Increase Docker memory limit (Docker Desktop settings)
-- Reduce `ES_JAVA_OPTS` heap size in docker-compose.yml
-- Limit concurrent requests with rate limiting
+# Check count
+python -c "from data.search_lite import HybridSearch; print(HybridSearch().count())"
+```
 
-### LLM API Errors
-
-- Verify API keys in `.env`
-- Check rate limits on OpenAI/Anthropic account
-- Review error logs in worker terminal
+### Slow first run
+The first run downloads embedding models (~90MB). Subsequent runs are faster.
 
 ## Next Steps
 
-1. Review `docs/ARCHITECTURE.md` for detailed system design
-2. Customize agent prompts in `agents/*.py`
-3. Implement evaluation harness in `tests/eval_*.py`
-4. Add custom document parsers
-5. Integrate with your clinical data sources
+1. **Read the architecture**: `docs/ARCHITECTURE.md`
+2. **Add your own documents**: Use the ingestion example above
+3. **Customize prompts**: Edit `agents/*_lite.py` files
+4. **Run tests**: `pytest tests/ -v`
 
 ## Support
 
-For issues or questions:
-- Check logs: `docker-compose logs [service-name]`
-- Review Temporal UI for workflow failures
-- Enable debug logging: `LOG_LEVEL=DEBUG` in `.env`
+- Check `docs/ARCHITECTURE.md` for system design
+- Review agent code in `agents/` directory
+- Open an issue on GitHub for bugs

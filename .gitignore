@@ -61,6 +61,8 @@ Thumbs.db
 # Project specific
 data/raw/
 data/processed/
+data_store/
+output/
 models/
 *.pkl
 *.model

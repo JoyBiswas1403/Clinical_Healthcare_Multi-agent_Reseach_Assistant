@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Guideline Research Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🏥</span>
+                <h1>Clinical Guideline Research Assistant</h1>
+            </div>
+            <p class="subtitle">AI-powered clinical research briefs with full provenance tracking</p>
+            <span class="badge">100% FREE • Powered by Ollama</span>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="topicInput" 
+                    placeholder="Enter your research topic (e.g., 'diabetes management in elderly patients')"
+                    autocomplete="off"
+                >
+                <button id="searchBtn" onclick="runResearch()">
+                    <span class="btn-icon">🔍</span>
+                    Research
+                </button>
+            </div>
+            <div class="quick-topics">
+                <span>Try:</span>
+                <button class="topic-chip" onclick="setTopic('diabetes management in elderly')">Diabetes + Elderly</button>
+                <button class="topic-chip" onclick="setTopic('hypertension treatment guidelines')">Hypertension</button>
+                <button class="topic-chip" onclick="setTopic('heart failure diabetes')">Heart Failure</button>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section id="progressSection" class="progress-section hidden">
+            <div class="progress-header">
+                <div class="spinner"></div>
+                <span id="progressText">Starting research...</span>
+            </div>
+            <div class="progress-steps">
+                <div class="step" id="step1">
+                    <span class="step-icon">🔍</span>
+                    <span class="step-text">Agent 1: Query Expansion</span>
+                    <span class="step-status" id="step1Status">⏳</span>
+                </div>
+                <div class="step" id="step2">
+                    <span class="step-icon">📚</span>
+                    <span class="step-text">Agent 2: Search & Summarize</span>
+                    <span class="step-status" id="step2Status">⏳</span>
+                </div>
+                <div class="step" id="step3">
+                    <span class="step-icon">✍️</span>
+                    <span class="step-text">Agent 3: Write Brief</span>
+                    <span class="step-status" id="step3Status">⏳</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section hidden">
+            <!-- Brief -->
+            <div class="result-card brief-card">
+                <div class="card-header">
+                    <h2>📄 Executive Brief</h2>
+                    <span class="word-count" id="wordCount">0 words</span>
+                </div>
+                <div class="brief-content" id="briefContent">
+                    <!-- Brief text will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Sources -->
+            <div class="result-card sources-card">
+                <div class="card-header">
+                    <h2>📚 Sources</h2>
+                    <span class="source-count" id="sourceCount">0 sources</span>
+                </div>
+                <div class="sources-list" id="sourcesList">
+                    <!-- Sources will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Risk Flags -->
+            <div class="result-card risks-card" id="risksCard">
+                <div class="card-header">
+                    <h2>⚠️ Risk Flags</h2>
+                </div>
+                <div class="risks-list" id="risksList">
+                    <!-- Risks will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="result-card metrics-card">
+                <div class="card-header">
+                    <h2>📊 Metrics</h2>
+                </div>
+                <div class="metrics-grid" id="metricsGrid">
+                    <div class="metric">
+                        <span class="metric-value" id="metricTime">--</span>
+                        <span class="metric-label">Time</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-value" id="metricDocs">--</span>
+                        <span class="metric-label">Documents</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-value" id="metricCitations">--</span>
+                        <span class="metric-label">Citations</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-value">$0.00</span>
+                        <span class="metric-label">Cost</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection" class="error-section hidden">
+            <div class="error-card">
+                <span class="error-icon">❌</span>
+                <h3>Error</h3>
+                <p id="errorMessage"></p>
+                <button onclick="hideError()">Try Again</button>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Built with Ollama • ChromaDB • Whoosh • sentence-transformers</p>
+            <p class="footer-note">All processing runs locally. No data sent to cloud.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
